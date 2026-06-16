@@ -15,12 +15,12 @@ st.markdown("Herramienta pedagógica basada en algoritmos analíticos para ident
 # =========================================================================
 st.sidebar.header("📥 Configuración de la Función")
 
-func_str = st.sidebar.text_input("Función f(x):", value="x**3 - 3*x")
+func_str = st.sidebar.text_input("Función f(x):", value="(x**2 - 1) / x**2")
 var_str = st.sidebar.text_input("Variable autónoma:", value="x")
 
 col_range1, col_range2 = st.sidebar.columns(2)
-xmin = col_range1.number_input("x mínimo (xmin):", value=-3.0)
-xmax = col_range2.number_input("x máximo (xmax):", value=3.0)
+xmin = col_range1.number_input("x mínimo (xmin):", value=-4.0)
+xmax = col_range2.number_input("x máximo (xmax):", value=4.0)
 
 st.sidebar.divider()
 st.sidebar.info(
@@ -87,10 +87,10 @@ if analizar:
                 
                 if valor_f1 > 0:
                     estado = "🔵 Creciente (↗️)"
-                    color = "#2980b9"  # Azul
+                    color = "#2980b9"  # Azul elegante
                 elif valor_f1 < 0:
                     estado = "🔴 Decreciente (↘️)"
-                    color = "#c0392b"  # Rojo
+                    color = "#c0392b"  # Rojo elegante
                 else:
                     estado = "⚪ Constante / Estacionario"
                     color = "#7f8c8d"
@@ -123,10 +123,10 @@ if analizar:
                 
                 if valor_f2 > 0:
                     estado = "🟢 Cóncava hacia arriba (∪)"
-                    color = "#2ecc71"  # Verde
+                    color = "#2ecc71"  # Verde elegante
                 elif valor_f2 < 0:
                     estado = "🟠 Cóncava hacia abajo (∩)"
-                    color = "#e67e22"  # Naranja
+                    color = "#e67e22"  # Naranja elegante
                 else:
                     estado = "⚪ Inflexión / Lineal"
                     color = "#95a5a6"
@@ -157,33 +157,68 @@ if analizar:
             st.divider()
 
             # =========================================================================
-            # VISUALIZACIÓN GRÁFICA INTERACTIVA TRÁMÓ A TRAMO
+            # VISUALIZACIÓN GRÁFICA INTERACTIVA TRAMO A TRAMO
             # =========================================================================
             st.header("3. Representación Gráfica del Comportamiento")
             col_g1, col_g2 = st.columns(2)
+
+            # --- ALGORITMO DE AJUSTE AUTOMÁTICO DE ESCALA (Estilo Wolfram) ---
+            # Recopilamos muestras válidas para calcular una escala lógica ignorando asíntotas infinitas
+            y_muestras = []
+            x_muestreo = np.linspace(xmin, xmax, 400)
+            for val in x_muestreo:
+                if not any(abs(val - disc) < 1e-4 for disc in cpdf):
+                    try:
+                        res = float(func.subs(x, val).evalf())
+                        if np.isfinite(res):
+                            y_muestras.append(res)
+                    except Exception:
+                        pass
+
+            # Filtro de percentiles estrictos para evitar desbordamientos visuales por asíntotas
+            if y_muestras:
+                y_min_calc = np.percentile(y_muestras, 5)  # Trunca caídas al infinito negativo
+                y_max_calc = np.percentile(y_muestras, 95) # Trunca picos al infinito positivo
+                rango_y = y_max_calc - y_min_calc
+                
+                if rango_y == 0:
+                    ymin_grafico = y_min_calc - 2
+                    ymax_grafico = y_max_calc + 2
+                else:
+                    ymin_grafico = y_min_calc - 0.3 * rango_y  # Margen estético del 30% inferior
+                    ymax_grafico = y_max_calc + 0.3 * rango_y  # Margen estético del 30% superior
+            else:
+                ymin_grafico, ymax_grafico = -10, 10
 
             # --- GRÁFICO 1: MONOTONÍA ---
             with col_g1:
                 st.subheader("Gráfico de Crecimiento y Decrecimiento")
                 fig1 = go.Figure()
                 for inter in intervalos_m:
-                    x_vals = np.linspace(inter["Inicio"], inter["Fin"], 100)
+                    x_vals = np.linspace(inter["Inicio"], inter["Fin"], 200)
                     y_vals = [float(func.subs(x, val).evalf()) if val not in cpdf else None for val in x_vals]
+                    
                     fig1.add_trace(go.Scatter(
                         x=x_vals, y=y_vals, mode='lines',
                         line=dict(color=inter["Color"], width=4),
                         name=inter["Estado"].split()[-1], hoverinfo='x+y'
                     ))
-                # Marcar puntos extremos locales
+                
+                # Marcar puntos extremos locales (Círculos con fondo blanco estilo Wolfram)
                 if puntos_extremos_validos:
                     pe_y = [float(func.subs(x, pt).evalf()) for pt in puntos_extremos_validos]
                     fig1.add_trace(go.Scatter(
                         x=puntos_extremos_validos, y=pe_y, mode='markers',
-                        marker=dict(color='black', size=10, line=dict(color='white', width=2)),
-                        name='Extremo local', text=[f"Punto Crítico<br>x: {pt:.2f}<br>y: {func.subs(x, pt).evalf():.2f}" for pt in puntos_extremos_validos],
+                        marker=dict(color='white', size=9, line=dict(color='black', width=2)),
+                        name='Extremo local', text=[f"Punto Crítico<br>x: {pt:.2f}" for pt in puntos_extremos_validos],
                         hoverinfo='text'
                     ))
-                fig1.update_layout(xaxis_title=f"Eje {var_str}", yaxis_title="f(x)", showlegend=False, template="plotly_white", height=450)
+                
+                fig1.update_layout(
+                    xaxis_title=f"Eje {var_str}", yaxis_title="f(x)", 
+                    showlegend=False, template="plotly_white", height=450,
+                    yaxis=dict(range=[ymin_grafico, ymax_grafico])
+                )
                 fig1.update_xaxes(zeroline=True, zerolinewidth=1.5, zerolinecolor='Black', gridcolor='LightGray')
                 fig1.update_yaxes(zeroline=True, zerolinewidth=1.5, zerolinecolor='Black', gridcolor='LightGray')
                 st.plotly_chart(fig1, use_container_width=True)
@@ -193,26 +228,33 @@ if analizar:
                 st.subheader("Gráfico de Concavidad e Inflexión")
                 fig2 = go.Figure()
                 for inter in intervalos_c:
-                    x_vals = np.linspace(inter["Inicio"], inter["Fin"], 100)
+                    x_vals = np.linspace(inter["Inicio"], inter["Fin"], 200)
                     y_vals = [float(func.subs(x, val).evalf()) if val not in cpdf else None for val in x_vals]
+                    
                     fig2.add_trace(go.Scatter(
                         x=x_vals, y=y_vals, mode='lines',
                         line=dict(color=inter["Color"], width=4),
                         name=inter["Estado"].split()[-1], hoverinfo='x+y'
                     ))
-                # Marcar puntos de inflexión geométricos
+                
+                # Marcar puntos de inflexión geométricos (Círculos con fondo blanco estilo Wolfram)
                 if puntos_inflexion_validos:
                     pi_y = [float(func.subs(x, pt).evalf()) for pt in puntos_inflexion_validos]
                     fig2.add_trace(go.Scatter(
                         x=puntos_inflexion_validos, y=pi_y, mode='markers',
-                        marker=dict(color='black', size=10, line=dict(color='white', width=2)),
-                        name='Inflexión', text=[f"Inflexión<br>x: {pt:.2f}<br>y: {func.subs(x, pt).evalf():.2f}" for pt in puntos_inflexion_validos],
+                        marker=dict(color='white', size=9, line=dict(color='black', width=2)),
+                        name='Inflexión', text=[f"Inflexión<br>x: {pt:.2f}" for pt in puntos_inflexion_validos],
                         hoverinfo='text'
                     ))
-                fig2.update_layout(xaxis_title=f"Eje {var_str}", yaxis_title="f(x)", showlegend=False, template="plotly_white", height=450)
+                
+                fig2.update_layout(
+                    xaxis_title=f"Eje {var_str}", yaxis_title="f(x)", 
+                    showlegend=False, template="plotly_white", height=450,
+                    yaxis=dict(range=[ymin_grafico, ymax_grafico])
+                )
                 fig2.update_xaxes(zeroline=True, zerolinewidth=1.5, zerolinecolor='Black', gridcolor='LightGray')
                 fig2.update_yaxes(zeroline=True, zerolinewidth=1.5, zerolinecolor='Black', gridcolor='LightGray')
                 st.plotly_chart(fig2, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Error analítico: {e}. Revisa la sintaxis ingresada (ejemplo: `(x**2 - 1) / (x - 2)`).")
+        st.error(f"Error analítico: {e}. Revisa la sintaxis ingresada (ejemplo: `(x**2 - 1) / x**2`).")
